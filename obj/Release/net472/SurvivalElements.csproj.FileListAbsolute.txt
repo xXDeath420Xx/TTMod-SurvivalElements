@@ -1,0 +1,9 @@
+C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\bin\Release\net472\SurvivalElements.dll
+C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\bin\Release\net472\SurvivalElements.pdb
+C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.csproj.AssemblyReference.cache
+C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.AssemblyInfoInputs.cache
+C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.AssemblyInfo.cs
+C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.csproj.CoreCompileInputs.cache
+C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.dll
+C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.pdb
