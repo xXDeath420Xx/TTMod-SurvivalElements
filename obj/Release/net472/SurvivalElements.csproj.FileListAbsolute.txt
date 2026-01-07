@@ -7,3 +7,4 @@ C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\Surviv
 C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.csproj.CoreCompileInputs.cache
 C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.dll
 C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.pdb
+C:\Users\crawf\TechtonicaMods\NewMods\SurvivalElements\obj\Release\net472\SurvivalElements.sourcelink.json
