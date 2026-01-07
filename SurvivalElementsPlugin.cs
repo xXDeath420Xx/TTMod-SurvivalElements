@@ -12,6 +12,7 @@ using TechtonicaFramework.API;
 using TechtonicaFramework.Health;
 using TechtonicaFramework.Core;
 using TechtonicaFramework.TechTree;
+using TechtonicaFramework.BuildMenu;
 
 namespace SurvivalElements
 {
@@ -27,7 +28,7 @@ namespace SurvivalElements
     {
         public const string MyGUID = "com.certifired.SurvivalElements";
         public const string PluginName = "SurvivalElements";
-        public const string VersionString = "2.6.0";
+        public const string VersionString = "2.6.1";
 
         private static readonly Harmony Harmony = new Harmony(MyGUID);
         public static ManualLogSource Log;
@@ -194,7 +195,7 @@ namespace SurvivalElements
                 description = "Handheld repair tool. Aim at damaged machines and hold to repair them.",
                 craftingMethod = CraftingMethod.Assembler,
                 craftTierRequired = 0,
-                headerTitle = "Equipment",
+                headerTitle = "Modded",
                 // subHeaderTitle inherited from parent
                 maxStackCount = 1,
                 sortPriority = 100,
@@ -249,7 +250,7 @@ namespace SurvivalElements
                 description = "Raw meat from wildlife. Should be cooked before consumption.",
                 craftingMethod = CraftingMethod.Assembler, // Placeholder - item won't actually be craftable without recipe
                 craftTierRequired = 0,
-                headerTitle = "Food",
+                headerTitle = "Modded",
                 maxStackCount = 50,
                 sortPriority = 300,
                 unlockName = FoodUnlock,
@@ -263,7 +264,7 @@ namespace SurvivalElements
                 description = "Well-cooked meat. Restores 40 hunger when consumed.",
                 craftingMethod = CraftingMethod.Smelter,
                 craftTierRequired = 0,
-                headerTitle = "Food",
+                headerTitle = "Modded",
                 maxStackCount = 30,
                 sortPriority = 301,
                 unlockName = FoodUnlock,
@@ -297,7 +298,7 @@ namespace SurvivalElements
                 description = "A hearty stew made from local plants. Restores 30 hunger.",
                 craftingMethod = CraftingMethod.Smelter,
                 craftTierRequired = 0,
-                headerTitle = "Food",
+                headerTitle = "Modded",
                 maxStackCount = 20,
                 sortPriority = 302,
                 unlockName = FoodUnlock,
@@ -330,7 +331,7 @@ namespace SurvivalElements
                 description = "Compact, long-lasting energy bar. Restores 25 hunger. Great for exploration.",
                 craftingMethod = CraftingMethod.Assembler,
                 craftTierRequired = 0,
-                headerTitle = "Food",
+                headerTitle = "Modded",
                 maxStackCount = 50,
                 sortPriority = 303,
                 unlockName = FoodUnlock,
@@ -363,7 +364,7 @@ namespace SurvivalElements
                 description = "Processed nutrient paste. Not tasty, but efficient. Restores 50 hunger.",
                 craftingMethod = CraftingMethod.Assembler,
                 craftTierRequired = 0,
-                headerTitle = "Food",
+                headerTitle = "Modded",
                 maxStackCount = 30,
                 sortPriority = 304,
                 unlockName = FoodUnlock,
@@ -1139,12 +1140,13 @@ namespace SurvivalElements
                 DrawDamageVignette();
             }
 
-            // Position in bottom-left corner (more visible, doesn't overlap game UI)
+            // Position in bottom-right corner (opposite side from toolbar)
             float barWidth = 280f;
             float barHeight = 28f;
             float padding = 15f;
             float borderWidth = 3f;
-            float startX = padding;
+            float totalWidth = barWidth + borderWidth * 2 + 80;
+            float startX = Screen.width - totalWidth - padding;
             float startY = Screen.height - (barHeight * 2 + padding * 3 + 40);
 
             // ========== HEALTH BAR ==========
