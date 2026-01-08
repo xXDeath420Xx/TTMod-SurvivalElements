@@ -7,7 +7,7 @@ repository = "https://thunderstore.io"
 [package]
 namespace = "CertiFried"
 name = "SurvivalElements"
-versionNumber = "2.6.1"
+versionNumber = "2.6.3"
 description = "Adds survival mechanics including machine health, repair tools, player health/hunger, death screen with respawn, and environmental hazard integration."
 websiteUrl = "https://github.com/xXDeath420Xx/TTMod-SurvivalElements"
 containsNsfwContent = false

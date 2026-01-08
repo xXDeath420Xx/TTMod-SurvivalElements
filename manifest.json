@@ -1,0 +1,11 @@
+{
+  "name": "SurvivalElements",
+  "version_number": "2.6.3",
+  "website_url": "https://github.com/CertiFried-Mods/TTMod-SurvivalElements",
+  "description": "Adds survival mechanics including hunger, thirst, temperature, and environmental challenges",
+  "dependencies": [
+    "BepInEx-BepInExPack-5.4.2100",
+    "Equinox-EquinoxsModUtils-6.1.1",
+    "CertiFried-TechtonicaFramework-1.4.0"
+  ]
+}

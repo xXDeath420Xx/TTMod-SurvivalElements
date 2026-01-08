@@ -1,6 +1,8 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using BepInEx;
 using BepInEx.Configuration;
 using BepInEx.Logging;
@@ -28,7 +30,7 @@ namespace SurvivalElements
     {
         public const string MyGUID = "com.certifired.SurvivalElements";
         public const string PluginName = "SurvivalElements";
-        public const string VersionString = "2.6.1";
+        public const string VersionString = "2.6.3";
 
         private static readonly Harmony Harmony = new Harmony(MyGUID);
         public static ManualLogSource Log;
@@ -86,6 +88,9 @@ namespace SurvivalElements
         private static Vector3 elevatorRespawnPosition = Vector3.zero;
         private static bool hasFoundElevator = false;
 
+        // Custom sprites cache
+        private static Dictionary<string, Sprite> customSprites = new Dictionary<string, Sprite>();
+
         private void Awake()
         {
             Instance = this;
@@ -94,6 +99,9 @@ namespace SurvivalElements
 
             InitializeConfig();
             Harmony.PatchAll();
+
+            // Load custom icons before registering items
+            LoadCustomIcons();
 
             // Register repair tool with EMUAdditions
             RegisterRepairTool();
@@ -494,6 +502,9 @@ namespace SurvivalElements
                 repairToolInfo.unlock = EMU.Unlocks.GetUnlockByName(RepairToolUnlock);
                 LogDebug($"Repair Tool linked to unlock");
             }
+
+            // Apply custom sprites to resources
+            ApplyCustomSprites();
         }
 
         private void OnTechTreeStateLoaded()
@@ -953,6 +964,133 @@ namespace SurvivalElements
             }
         }
 
+        /// <summary>
+        /// Clone a sprite from an existing game resource to match Techtonica's icon style
+        /// </summary>
+        private static Sprite CloneGameSprite(string sourceResourceName)
+        {
+            try
+            {
+                ResourceInfo sourceResource = EMU.Resources.GetResourceInfoByName(sourceResourceName);
+                if (sourceResource != null && sourceResource.sprite != null)
+                {
+                    Log.LogInfo($"Cloned sprite from {sourceResourceName}");
+                    return sourceResource.sprite;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.LogWarning($"Failed to clone sprite from {sourceResourceName}: {ex.Message}");
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Load all custom icons by cloning from existing game resources
+        /// </summary>
+        private void LoadCustomIcons()
+        {
+            Log.LogInfo("Loading custom icons from game assets...");
+
+            // Repair Tool - use Scanner sprite (tool-like)
+            customSprites[RepairToolName] = CloneGameSprite("Scanner");
+
+            // Food items - use appropriate plant/organic sprites
+            customSprites[CookedMeatName] = CloneGameSprite("Kindlevine Extract");
+            customSprites[PlantStewName] = CloneGameSprite("Plantmatter");
+            customSprites[EnergyBarName] = CloneGameSprite("Plantmatter Fiber");
+            customSprites[NutrientPasteName] = CloneGameSprite("Biobrick");
+            customSprites[RawMeatName] = CloneGameSprite("Plantmatter");
+
+            int loaded = customSprites.Values.Count(s => s != null);
+            Log.LogInfo($"Cloned {loaded}/{customSprites.Count} sprites from game assets");
+        }
+
+        /// <summary>
+        /// Apply custom sprites to resources by name
+        /// </summary>
+        private void ApplyCustomSprites()
+        {
+            Log.LogInfo("Applying custom sprites to resources...");
+
+            foreach (var kvp in customSprites)
+            {
+                string resourceName = kvp.Key;
+                Sprite sprite = kvp.Value;
+
+                ResourceInfo resourceInfo = EMU.Resources.GetResourceInfoByName(resourceName);
+                if (resourceInfo != null)
+                {
+                    // Use reflection to set the sprite (property is read-only)
+                    bool spriteSet = false;
+
+                    // Try rawSprite field first
+                    var rawSpriteField = typeof(ResourceInfo).GetField("rawSprite", BindingFlags.Public | BindingFlags.Instance);
+                    if (rawSpriteField != null)
+                    {
+                        rawSpriteField.SetValue(resourceInfo, sprite);
+                        spriteSet = true;
+                        LogDebug($"Applied custom sprite to {resourceName} via rawSprite field");
+                    }
+
+                    // Try _sprite field
+                    if (!spriteSet)
+                    {
+                        var spriteField = typeof(ResourceInfo).GetField("_sprite", BindingFlags.NonPublic | BindingFlags.Instance);
+                        if (spriteField != null)
+                        {
+                            spriteField.SetValue(resourceInfo, sprite);
+                            spriteSet = true;
+                            LogDebug($"Applied custom sprite to {resourceName} via _sprite field");
+                        }
+                    }
+
+                    // Try backing field
+                    if (!spriteSet)
+                    {
+                        var backingField = typeof(ResourceInfo).GetField("<sprite>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance);
+                        if (backingField != null)
+                        {
+                            backingField.SetValue(resourceInfo, sprite);
+                            spriteSet = true;
+                            LogDebug($"Applied custom sprite to {resourceName} via backing field");
+                        }
+                    }
+
+                    if (!spriteSet)
+                    {
+                        Log.LogWarning($"Could not set sprite on {resourceName} - no writable field found");
+                    }
+                }
+                else
+                {
+                    Log.LogWarning($"Could not find resource '{resourceName}' to apply sprite");
+                }
+            }
+
+            // Also apply to unlocks if they share the same name
+            ApplySpriteToUnlock(RepairToolUnlock, RepairToolName);
+            ApplySpriteToUnlock(FoodUnlock, CookedMeatName); // Use cooked meat icon for food unlock
+
+            Log.LogInfo($"Applied {customSprites.Count} custom sprites");
+        }
+
+        /// <summary>
+        /// Apply a custom sprite to an unlock
+        /// </summary>
+        private void ApplySpriteToUnlock(string unlockName, string spriteKey)
+        {
+            if (!customSprites.TryGetValue(spriteKey, out Sprite sprite))
+                return;
+
+            Unlock unlock = EMU.Unlocks.GetUnlockByName(unlockName);
+            if (unlock != null && sprite != null)
+            {
+                unlock.sprite = sprite;
+                LogDebug($"Applied custom sprite to unlock '{unlockName}'");
+            }
+        }
+
         public static void LogDebug(string message)
         {
             if (DebugMode != null && DebugMode.Value)
@@ -1140,31 +1278,49 @@ namespace SurvivalElements
                 DrawDamageVignette();
             }
 
-            // Position in bottom-right corner (opposite side from toolbar)
-            float barWidth = 280f;
-            float barHeight = 28f;
-            float padding = 15f;
-            float borderWidth = 3f;
-            float totalWidth = barWidth + borderWidth * 2 + 80;
-            float startX = Screen.width - totalWidth - padding;
-            float startY = Screen.height - (barHeight * 2 + padding * 3 + 40);
+            // Compact design - positioned to the right of the toolbar/toolbelt
+            // Toolbar is roughly centered, so we position just to its right
+            float barWidth = 140f;      // Shorter bars
+            float barHeight = 18f;      // Thinner bars
+            float gap = 4f;             // Tight gap between bars
+            float borderWidth = 2f;
+            float textWidth = 45f;      // Compact text area
+
+            // Responsive positioning: far right side of screen, vertically aligned with toolbar
+            // Scale bar sizes based on resolution (1080p baseline)
+            float uiScale = Mathf.Clamp(Screen.height / 1080f, 0.75f, 2f);
+            barWidth = 140f * uiScale;
+            barHeight = 18f * uiScale;
+            gap = 4f * uiScale;
+            textWidth = 45f * uiScale;
+
+            // Position: far right of screen with margin, above toolbar
+            float rightMargin = 20f * uiScale;
+            float startX = Screen.width - barWidth - textWidth - rightMargin;
+            float startY = Screen.height - 90f * uiScale; // Responsive vertical position
+
+            // Container background for both bars
+            float containerWidth = barWidth + textWidth + 10f;
+            float containerHeight = barHeight * 2 + gap + 8f;
+            GUI.color = new Color(0f, 0f, 0f, 0.5f);
+            GUI.Box(new Rect(startX - 4, startY - 4, containerWidth + 8, containerHeight + 4), "", backgroundStyle);
 
             // ========== HEALTH BAR ==========
             float healthPercent = SurvivalElementsPlugin.PlayerHealth / SurvivalElementsPlugin.PlayerMaxHealth;
 
-            // Outer border
-            GUI.color = new Color(0.15f, 0.15f, 0.15f, 0.95f);
+            // Border
+            GUI.color = new Color(0.3f, 0.3f, 0.3f, 0.9f);
             GUI.Box(new Rect(startX - borderWidth, startY - borderWidth,
-                barWidth + borderWidth * 2 + 80, barHeight + borderWidth * 2), "", borderStyle);
+                barWidth + borderWidth * 2, barHeight + borderWidth * 2), "", borderStyle);
 
             // Background
-            GUI.color = new Color(0.08f, 0.08f, 0.08f, 0.9f);
+            GUI.color = new Color(0.1f, 0.1f, 0.1f, 0.95f);
             GUI.Box(new Rect(startX, startY, barWidth, barHeight), "", backgroundStyle);
 
-            // Health fill with gradient effect
+            // Health fill
             Color healthColor = isFlashing ? Color.white : GetHealthColor(healthPercent);
             GUI.color = healthColor;
-            GUI.Box(new Rect(startX + 2, startY + 2, (barWidth - 4) * healthPercent, barHeight - 4), "", healthBarStyle);
+            GUI.Box(new Rect(startX + 1, startY + 1, (barWidth - 2) * healthPercent, barHeight - 2), "", healthBarStyle);
 
             // Low health pulsing effect
             if (healthPercent < 0.25f)
@@ -1176,53 +1332,52 @@ namespace SurvivalElements
 
             GUI.color = Color.white;
 
-            // Health icon (heart symbol using text)
-            GUI.Label(new Rect(startX + 5, startY + 2, 30, barHeight), "\u2665", iconStyle); // ♥
+            // Health icon inside bar
+            GUI.Label(new Rect(startX + 3, startY - 1, 20, barHeight), "\u2665", iconStyle); // ♥
 
-            // Health text overlay
-            string healthText = $"{SurvivalElementsPlugin.PlayerHealth:F0} / {SurvivalElementsPlugin.PlayerMaxHealth:F0}";
-            GUI.Label(new Rect(startX + barWidth + 10, startY + 4, 80, barHeight), healthText, labelStyle);
+            // Health text (compact format)
+            string healthText = $"{SurvivalElementsPlugin.PlayerHealth:F0}";
+            GUI.Label(new Rect(startX + barWidth + 6, startY, textWidth, barHeight), healthText, labelStyle);
 
             // ========== HUNGER BAR ==========
-            startY += barHeight + padding;
+            startY += barHeight + gap;
             float hungerPercent = SurvivalElementsPlugin.CurrentHunger / SurvivalElementsPlugin.MaxHunger;
 
-            // Outer border
-            GUI.color = new Color(0.15f, 0.15f, 0.15f, 0.95f);
+            // Border
+            GUI.color = new Color(0.3f, 0.3f, 0.3f, 0.9f);
             GUI.Box(new Rect(startX - borderWidth, startY - borderWidth,
-                barWidth + borderWidth * 2 + 80, barHeight + borderWidth * 2), "", borderStyle);
+                barWidth + borderWidth * 2, barHeight + borderWidth * 2), "", borderStyle);
 
             // Background
-            GUI.color = new Color(0.08f, 0.08f, 0.08f, 0.9f);
+            GUI.color = new Color(0.1f, 0.1f, 0.1f, 0.95f);
             GUI.Box(new Rect(startX, startY, barWidth, barHeight), "", backgroundStyle);
 
             // Hunger fill
             Color hungerColor = GetHungerColor(hungerPercent);
             GUI.color = hungerColor;
-            GUI.Box(new Rect(startX + 2, startY + 2, (barWidth - 4) * hungerPercent, barHeight - 4), "", hungerBarStyle);
+            GUI.Box(new Rect(startX + 1, startY + 1, (barWidth - 2) * hungerPercent, barHeight - 2), "", hungerBarStyle);
 
             GUI.color = Color.white;
 
-            // Hunger icon (food/drumstick using text)
-            GUI.Label(new Rect(startX + 5, startY + 2, 30, barHeight), "\u25CF", iconStyle); // ●
+            // Hunger icon inside bar
+            GUI.Label(new Rect(startX + 3, startY - 1, 20, barHeight), "\u25CF", iconStyle); // ●
 
-            // Hunger text overlay
+            // Hunger text (compact format)
             string hungerText = $"{SurvivalElementsPlugin.CurrentHunger:F0}%";
-            GUI.Label(new Rect(startX + barWidth + 10, startY + 4, 80, barHeight), hungerText, labelStyle);
+            GUI.Label(new Rect(startX + barWidth + 6, startY, textWidth, barHeight), hungerText, labelStyle);
 
-            // ========== STATUS WARNINGS ==========
-            startY += barHeight + padding;
+            // ========== STATUS WARNINGS (positioned above the bars) ==========
             if (SurvivalElementsPlugin.CurrentHunger <= 0)
             {
                 float blink = Mathf.Sin(Time.time * 8f) > 0 ? 1f : 0.5f;
                 GUI.color = new Color(1f, 0.2f, 0.2f, blink);
-                GUI.Label(new Rect(startX, startY, 300, 30), "!! STARVING - FIND FOOD !!", warningStyle);
+                GUI.Label(new Rect(startX, startY - 45, 200, 20), "STARVING!", warningStyle);
                 GUI.color = Color.white;
             }
             else if (SurvivalElementsPlugin.CurrentHunger <= 25f)
             {
                 GUI.color = new Color(1f, 0.8f, 0.2f, 1f);
-                GUI.Label(new Rect(startX, startY, 300, 30), "Hungry - Eat soon", warningStyle);
+                GUI.Label(new Rect(startX, startY - 45, 200, 20), "Hungry", warningStyle);
                 GUI.color = Color.white;
             }
 
@@ -1230,7 +1385,7 @@ namespace SurvivalElements
             {
                 float blink = Mathf.Sin(Time.time * 6f) > 0 ? 1f : 0.3f;
                 GUI.color = new Color(1f, 0f, 0f, blink);
-                GUI.Label(new Rect(startX, startY + 25, 300, 30), "!! CRITICAL HEALTH !!", warningStyle);
+                GUI.Label(new Rect(startX, startY - 25, 200, 20), "LOW HEALTH!", warningStyle);
                 GUI.color = Color.white;
             }
         }
@@ -1290,21 +1445,21 @@ namespace SurvivalElements
             borderTex = MakeTexture(2, 2, new Color(0.2f, 0.2f, 0.2f, 0.95f));
             borderStyle.normal.background = borderTex;
 
-            // Label
+            // Label (compact)
             labelStyle.normal.textColor = Color.white;
-            labelStyle.fontSize = 16;
+            labelStyle.fontSize = 12;
             labelStyle.fontStyle = FontStyle.Bold;
             labelStyle.alignment = TextAnchor.MiddleLeft;
 
-            // Icon style
+            // Icon style (compact)
             iconStyle.normal.textColor = Color.white;
-            iconStyle.fontSize = 20;
+            iconStyle.fontSize = 14;
             iconStyle.fontStyle = FontStyle.Bold;
             iconStyle.alignment = TextAnchor.MiddleLeft;
 
-            // Warning style
+            // Warning style (compact)
             warningStyle.normal.textColor = Color.white;
-            warningStyle.fontSize = 18;
+            warningStyle.fontSize = 11;
             warningStyle.fontStyle = FontStyle.Bold;
             warningStyle.alignment = TextAnchor.MiddleLeft;
         }
